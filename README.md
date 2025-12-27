@@ -52,7 +52,6 @@ Clean, readable business summaries
 
 No raw tables or technical outputs exposed to the user
 
-🏗️ Project Architecture
 FMCG Data (CSV)
       ↓
 SQLite Database (SQL Analytics)
@@ -64,6 +63,7 @@ ML Model (XGBoost)
 Scenario Simulations
       ↓
 Streamlit Web App (Jarvis Interface)
+
 
 🛠️ Tech Stack
 
