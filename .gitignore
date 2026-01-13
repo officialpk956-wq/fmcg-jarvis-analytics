@@ -1,29 +1,51 @@
-# Python
+# -----------------------------
+# Python cache & compiled files
+# -----------------------------
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
 
-# Virtual environment
+# -----------------------------
+# Virtual environments
+# -----------------------------
 env/
 venv/
+.venv/
 
-# Jupyter
+# -----------------------------
+# Jupyter Notebook checkpoints
+# -----------------------------
 .ipynb_checkpoints/
 
-# OS
+# -----------------------------
+# OS / Editor junk
+# -----------------------------
 .DS_Store
 Thumbs.db
 
+# -----------------------------
 # Ignore SQLite databases
+# (EXCEPT the FMCG demo database)
+# -----------------------------
 *.db
+!data/fmcg_data.db
 
-# Ignore Power BI files
+# -----------------------------
+# Power BI files (do NOT version)
+# -----------------------------
 Power bi/
 *.pbix
 
-# Ignore backup files
+# -----------------------------
+# Backup / temp files
+# -----------------------------
 *_backup.py
+*.bak
+*.tmp
 
-
-# Model artifacts (optional – see note below)
-# Uncomment if model is large
-# tools/*.pkl
+# -----------------------------
+# Optional: model artifacts
+# (COMMENTED — enable only if needed)
+# -----------------------------
+# *.pkl
