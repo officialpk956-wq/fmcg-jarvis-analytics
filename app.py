@@ -26,8 +26,10 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent
 
-MODEL_PATH = BASE_DIR / "tools" / "xgb_daily_demand_model.pkl"
+MODEL_PATH = BASE_DIR / "tools" / "xgb_model.pkl"
+XTEST_PATH = BASE_DIR / "tools" / "X_test.pkl"
 DB_PATH = BASE_DIR / "data" / "fmcg_data.db"
+
 
 
 # -------------------------
@@ -35,8 +37,21 @@ DB_PATH = BASE_DIR / "data" / "fmcg_data.db"
 # -------------------------
 @st.cache_resource
 def load_model():
+    if not MODEL_PATH.exists():
+        st.error("❌ Model file not found in deployment.")
+        st.stop()
+
+    if not XTEST_PATH.exists():
+        st.error("❌ X_test file not found in deployment.")
+        st.stop()
+
     with open(MODEL_PATH, "rb") as f:
-        return pickle.load(f)
+        model = pickle.load(f)
+
+    X_test = pd.read_pickle(XTEST_PATH)
+
+    return model, X_test
+
 
 @st.cache_data
 def load_features():
@@ -51,7 +66,7 @@ def load_db():
 # LOAD REQUIRED RESOURCES
 # -------------------------
 try:
-    model = load_model()
+    model, X_test = load_model()
     X_test = load_features()
     conn = load_db()
     st.success("✅ Model & features loaded successfully")
