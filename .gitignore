@@ -50,3 +50,11 @@ Power bi/
 # -----------------------------
 # *.pkl
 kipping...
+
+# Data & artifacts
+data/
+*.csv
+*.parquet
+*.pkl
+*.joblib
+
