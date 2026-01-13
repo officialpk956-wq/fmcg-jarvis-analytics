@@ -22,14 +22,13 @@ st.caption("AI-powered Business Analytics Assistant")
 # -------------------------
 # PATH SETUP (MATCHES YOUR DIRECTORY)
 # -------------------------
-PROJECT_ROOT = Path("D:/project")
+from pathlib import Path
 
-TOOLS_DIR = PROJECT_ROOT / "tools"
-DATA_DIR = PROJECT_ROOT / "data"
+BASE_DIR = Path(__file__).resolve().parent
 
-MODEL_PATH = TOOLS_DIR / "xgb_model.pkl"
-XTEST_PATH = TOOLS_DIR / "X_test.pkl"
-DB_PATH = DATA_DIR / "fmcg_data.db"
+MODEL_PATH = BASE_DIR / "tools" / "xgb_daily_demand_model.pkl"
+DB_PATH = BASE_DIR / "data" / "fmcg_data.db"
+
 
 # -------------------------
 # DEBUG PATH VISIBILITY
