@@ -13,6 +13,17 @@ venv/
 .DS_Store
 Thumbs.db
 
+# Ignore SQLite databases
+*.db
+
+# Ignore Power BI files
+Power bi/
+*.pbix
+
+# Ignore backup files
+*_backup.py
+
+
 # Model artifacts (optional – see note below)
 # Uncomment if model is large
 # tools/*.pkl
