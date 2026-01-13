@@ -31,17 +31,6 @@ DB_PATH = BASE_DIR / "data" / "fmcg_data.db"
 
 
 # -------------------------
-# DEBUG PATH VISIBILITY
-# -------------------------
-with st.expander("🔍 Debug paths"):
-    st.write("MODEL_PATH exists:", MODEL_PATH.exists())
-    st.write("XTEST_PATH exists:", XTEST_PATH.exists())
-    st.write("DB_PATH exists:", DB_PATH.exists())
-    st.write("MODEL_PATH:", MODEL_PATH)
-    st.write("XTEST_PATH:", XTEST_PATH)
-    st.write("DB_PATH:", DB_PATH)
-
-# -------------------------
 # LOADERS (CACHED)
 # -------------------------
 @st.cache_resource
