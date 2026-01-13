@@ -3,9 +3,10 @@
 # =========================
 
 import streamlit as st
+import pandas as pd
 import pickle
-import sqlite3
 from pathlib import Path
+import sqlite3
 
 # -------------------------
 # PAGE CONFIG
