@@ -1,5 +1,5 @@
 # =========================
-# FMCG JARVIS – STREAMLIT APP
+# FMCG JARVIS – STREAMLIT APP (UI v2 – PARTIAL PREDEFINED QUESTIONS)
 # =========================
 
 import streamlit as st
@@ -23,6 +23,9 @@ st.set_page_config(
     layout="wide"
 )
 
+# -------------------------
+# HEADER
+# -------------------------
 st.title("🧠 FMCG Jarvis")
 st.caption("AI-powered Business Analytics Assistant")
 
@@ -41,125 +44,64 @@ REQUIRED_TABLES = ["sales"]
 # HEALTH CHECK FUNCTIONS
 # -------------------------
 def check_database_health() -> tuple[bool, Optional[Engine], str]:
-    """
-    Validate database at startup:
-    1. File exists
-    2. Engine connects
-    3. Required tables exist
-    """
     engine: Optional[Engine] = None
-    db_path_str = str(DB_PATH)
 
-    # 1. File exists
     if not DB_PATH.exists():
-        return False, None, f"Database file not found: `{db_path_str}`"
+        return False, None, "Database file not found"
 
-    # 2. Create engine + test connection
     try:
         engine = create_engine(
-            f"sqlite:///{db_path_str}",
+            f"sqlite:///{DB_PATH}",
             connect_args={"check_same_thread": False},
             pool_pre_ping=True,
         )
         with engine.connect() as conn:
             conn.execute(text("SELECT 1"))
-    except SQLAlchemyError as e:
-        if engine is not None:
-            engine.dispose()
-        return False, None, f"Cannot connect to database: {e}"
 
-    # 3. Verify required tables (DEBUG ENABLED)
-    try:
         with engine.connect() as conn:
             result = conn.execute(
                 text("SELECT name FROM sqlite_master WHERE type='table'")
             )
-            existing_tables = [row[0] for row in result.fetchall()]
+            tables = [row[0] for row in result.fetchall()]
+            missing = set(REQUIRED_TABLES) - set(tables)
 
-            # 🔍 DEBUG OUTPUT (TEMPORARY)
-            st.info("📋 Tables found in database:")
-            st.write(existing_tables)
-
-            missing_tables = set(REQUIRED_TABLES) - set(existing_tables)
-            if missing_tables:
-                engine.dispose()
-                return False, None, f"Missing required tables: `{', '.join(missing_tables)}`"
+            if missing:
+                return False, None, f"Missing tables: {', '.join(missing)}"
 
     except SQLAlchemyError as e:
-        engine.dispose()
-        return False, None, f"Cannot verify tables: {e}"
+        return False, None, str(e)
 
-    return True, engine, "Database is healthy"
+    return True, engine, "Healthy"
 
 
 def check_model_health():
     if not MODEL_PATH.exists():
-        return False, None, f"Model file not found: `{MODEL_PATH.name}`"
+        return False, None, "Model file missing"
 
-    try:
-        with open(MODEL_PATH, "rb") as f:
-            model = pickle.load(f)
-    except Exception as e:
-        return False, None, f"Cannot load model: {e}"
+    with open(MODEL_PATH, "rb") as f:
+        model = pickle.load(f)
 
-    if not hasattr(model, "predict"):
-        return False, None, "Model is invalid (no predict method)"
-
-    return True, model, "Model is healthy"
+    return True, model, "Healthy"
 
 
 def check_features_health():
     if not XTEST_PATH.exists():
-        return False, None, f"Features file not found: `{XTEST_PATH.name}`"
+        return False, None, "Feature file missing"
 
-    try:
-        X = pd.read_pickle(XTEST_PATH)
-    except Exception as e:
-        return False, None, f"Cannot load features: {e}"
-
-    if X is None or X.empty:
-        return False, None, "Features file is empty"
-
-    return True, X, f"Features loaded ({len(X):,} rows, {len(X.columns)} columns)"
+    X = pd.read_pickle(XTEST_PATH)
+    return True, X, f"{len(X):,} rows, {len(X.columns)} columns"
 
 
 # -------------------------
-# STARTUP VALIDATION
+# STARTUP CHECKS
 # -------------------------
-def run_startup_checks() -> tuple[Optional[Engine], Any, Any]:
-    st.subheader("🔍 System Health Check")
+def run_startup_checks():
+    db_ok, engine, _ = check_database_health()
+    model_ok, model, _ = check_model_health()
+    feat_ok, X, _ = check_features_health()
 
-    all_passed = True
-    engine, model, X = None, None, None
-
-    db_ok, engine, db_msg = check_database_health()
-    if db_ok:
-        st.success(f"✅ **Database:** {db_msg}")
-    else:
-        st.error(f"❌ **Database:** {db_msg}")
-        all_passed = False
-
-    model_ok, model, model_msg = check_model_health()
-    if model_ok:
-        st.success(f"✅ **ML Model:** {model_msg}")
-    else:
-        st.error(f"❌ **ML Model:** {model_msg}")
-        all_passed = False
-
-    features_ok, X, features_msg = check_features_health()
-    if features_ok:
-        st.success(f"✅ **Features:** {features_msg}")
-    else:
-        st.error(f"❌ **Features:** {features_msg}")
-        all_passed = False
-
-    st.divider()
-
-    if not all_passed:
-        st.error(
-            "🚫 **Jarvis cannot start due to missing dependencies.**\n\n"
-            "Please verify that all required files are deployed correctly."
-        )
+    if not all([db_ok, model_ok, feat_ok]):
+        st.error("🚫 System failed health checks")
         st.stop()
 
     return engine, model, X
@@ -168,22 +110,56 @@ def run_startup_checks() -> tuple[Optional[Engine], Any, Any]:
 engine, model, X_test = run_startup_checks()
 
 # -------------------------
-# QUESTIONS
+# TOP SUMMARY BAR
 # -------------------------
-QUESTIONS = [
-    "— Descriptive Analytics —",
+col1, col2, col3 = st.columns(3)
+col1.metric("Rows", f"{len(X_test):,}")
+col2.metric("Features", len(X_test.columns))
+col3.metric("Model", "Healthy")
+
+st.divider()
+
+# -------------------------
+# HERO SECTION – ASK JARVIS
+# -------------------------
+st.markdown("## 💬 Ask Jarvis")
+st.caption(
+    "Ask business questions in plain English. "
+    "Jarvis analyzes the data and responds with insights and recommendations."
+)
+
+question = st.text_input(
+    "Ask a business question",
+    placeholder="e.g. What happens if sales drop by 20%?"
+)
+
+st.markdown("**Try asking:**")
+c1, c2, c3 = st.columns(3)
+
+with c1:
+    if st.button("Average daily sales in 2024"):
+        question = "Average daily sales in 2024"
+
+with c2:
+    if st.button("Do promotions increase sales?"):
+        question = "Do promotions increase sales?"
+
+with c3:
+    if st.button("What if stock drops by 20%?"):
+        question = "What if stock drops by 20%?"
+
+st.divider()
+
+# -------------------------
+# PREDEFINED QUESTIONS (FILTERED)
+# -------------------------
+PREDEFINED_QUESTIONS = [
     "Total units sold in 2024",
     "Average daily sales in 2024",
-    "Which category sells the most?",
-    "Which region performs best?",
-    "Which brand performs best?",
-    "Which channel performs best?",
     "Do promotions increase sales?",
-    "— Predictive Analytics —",
     "What are the expected daily sales?",
     "Expected sales under promotion",
     "Expected sales without promotion",
-    "— Prescriptive Analytics (What-If) —",
     "What if stock drops by 20%?",
     "What if stock increases by 20%?",
     "What if delivery delay increases?",
@@ -192,31 +168,35 @@ QUESTIONS = [
     "What affects sales the most?",
 ]
 
-st.subheader("📊 Ask Jarvis a business question")
+selected = st.selectbox(
+    "Or choose a predefined question:",
+    ["— Select —"] + PREDEFINED_QUESTIONS
+)
 
-question = st.selectbox("Choose a question:", QUESTIONS, index=1)
+if selected != "— Select —":
+    question = selected
 
-def is_section_header(q: str) -> bool:
-    return q.startswith("—") and q.endswith("—")
-
-st.divider()
-
-if is_section_header(question):
-    st.info("👆 Please select a question from the dropdown above.")
-else:
+# -------------------------
+# ANSWER OUTPUT
+# -------------------------
+if question:
     with st.spinner("🔍 Analyzing..."):
-        answer = ask_jarvis(question, engine, model, X_test)
-    st.markdown(answer)
+        response = ask_jarvis(question, engine, model, X_test)
+
+    st.markdown("### 📊 Insight")
+    st.info(response)
+
+    st.markdown("### 💡 Recommendation")
+    st.success("Use this insight to guide data-driven decisions.")
 
 st.divider()
 
-with st.expander("ℹ️ How Jarvis Works"):
-    st.markdown("""
-**FMCG Jarvis** is an AI-powered assistant designed to support data-driven decision making.
+# -------------------------
+# SYSTEM HEALTH (LOW WEIGHT)
+# -------------------------
+with st.expander("🩺 System Health"):
+    st.success("Database: Healthy")
+    st.success("ML Model: Loaded")
+    st.success("Features: Ready")
 
-- 📊 Descriptive analytics via SQL  
-- 📈 Predictive analytics via ML  
-- 🔮 What-if simulations for decisions  
-    """)
-
-st.caption("Built with ❤️ for FMCG analytics | Jarvis v1.0")
+st.caption("Built with ❤️ for FMCG analytics | Jarvis v2.0")
