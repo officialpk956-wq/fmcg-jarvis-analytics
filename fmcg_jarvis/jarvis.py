@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import logging
 from typing import Any, Optional
+from .jarvis_ml import align_features
 
 from sqlalchemy.engine import Engine
 
@@ -337,7 +338,7 @@ def ask_jarvis(
                 )
             X_promo = X.copy()
             X_promo["promotion_flag"] = 1
-            preds = np.expm1(model.predict(X_promo))
+            preds = np.expm1(model.predict(align_features(model, X_promo)))
             avg_sales = float(preds.mean())
             return (
                 f"📈 Expected sales **under promotion**: **{avg_sales:.2f} units per SKU per day**.\n\n"
@@ -356,7 +357,7 @@ def ask_jarvis(
                 )
             X_no_promo = X.copy()
             X_no_promo["promotion_flag"] = 0
-            preds = np.expm1(model.predict(X_no_promo))
+            preds = np.expm1(model.predict(align_features(model, X_no_promo)))
             avg_sales = float(preds.mean())
             return (
                 f"📉 Expected sales **without promotion**: **{avg_sales:.2f} units per SKU per day**.\n\n"
@@ -392,8 +393,8 @@ def ask_jarvis(
             X_sim["stock_available"] *= 1.2
             if "stock_ratio" in X_sim.columns:
                 X_sim["stock_ratio"] *= 1.2
-            base = np.expm1(model.predict(X))
-            sim = np.expm1(model.predict(X_sim))
+            base = np.expm1(model.predict(align_features(model, X)))
+            sim = np.expm1(model.predict(align_features(model, X_sim)))
             base_mean = float(base.mean())
             sim_mean = float(sim.mean())
             pct_change = _safe_pct_change(sim_mean, base_mean)
@@ -430,8 +431,8 @@ def ask_jarvis(
                 )
             
             X_sim[delay_col] += 2
-            base = np.expm1(model.predict(X))
-            sim = np.expm1(model.predict(X_sim))
+            base = np.expm1(model.predict(align_features(model, X)))
+            sim = np.expm1(model.predict(align_features(model, X_sim)))
             base_mean = float(base.mean())
             sim_mean = float(sim.mean())
             pct_change = _safe_pct_change(sim_mean, base_mean)
