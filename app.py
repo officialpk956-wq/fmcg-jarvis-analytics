@@ -45,6 +45,13 @@ REQUIRED_TABLES = ["sales"]
 # HEALTH CHECK FUNCTIONS
 # -------------------------
 def check_database_health() -> tuple[bool, Optional[Engine], str]:
+    with engine.connect() as conn:
+      result = conn.execute(
+        text("SELECT name FROM sqlite_master WHERE type='table'")
+      )
+      tables = [row[0] for row in result.fetchall()]
+      st.write("📋 Tables found in database:", tables)
+
     """
     Validate database at startup:
     1. File exists
