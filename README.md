@@ -1,121 +1,350 @@
-📊 FMCG Jarvis Analytics
+# FMCG Jarvis - AI-Powered Business Analytics Assistant
 
-An AI-powered business analytics assistant for the FMCG (Fast-Moving Consumer Goods) domain, combining SQL-based reporting, machine learning forecasting, and what-if simulations, delivered through an interactive Streamlit web application.
+A production-ready, end-to-end analytics system for FMCG sales and supply-chain decision support. Combines SQL-based descriptive analytics, machine learning predictions, and what-if simulations into an interactive Streamlit application.
 
-This project demonstrates how data analytics and ML can be used together to support real-world business decision-making.
+---
 
-🚀 Project Overview
+## Table of Contents
 
-In FMCG businesses, decisions around inventory, promotions, and demand forecasting are time-sensitive and data-driven.
-This project simulates a real internal analytics tool used by managers to answer questions such as:
+- [Project Overview](#project-overview)
+- [Key Capabilities](#key-capabilities)
+- [System Architecture](#system-architecture)
+- [ML Design and Feature Schema](#ml-design-and-feature-schema)
+- [Project Structure](#project-structure)
+- [Startup Health Checks](#startup-health-checks)
+- [How to Run Locally](#how-to-run-locally)
+- [Engineering Principles](#engineering-principles)
+- [Future Improvements](#future-improvements)
+- [Author](#author)
 
-How much did we sell?
+---
 
-Do promotions really work?
+## Project Overview
 
-What happens if inventory drops?
+FMCG Jarvis is a business analytics assistant designed for Fast-Moving Consumer Goods (FMCG) decision-makers. It answers business questions across three analytics tiers:
 
-Which factors drive sales the most?
+| Tier | Type | Example Questions |
+|------|------|-------------------|
+| **Descriptive** | SQL-based | Which category sells the most? |
+| **Predictive** | ML-based | What are the expected daily sales? |
+| **Prescriptive** | Simulation | What if stock drops by 20%? |
 
-FMCG Jarvis acts as a guided analytics assistant that answers these questions using historical data, ML models, and scenario analysis.
+The system is built for reliability: all dependencies are validated at startup, errors are handled gracefully with user-friendly messages, and feature parity between training and inference is strictly enforced.
 
-🧠 Key Features
-📊 Descriptive Analytics (SQL)
+---
 
-Total units sold by time period
+## Key Capabilities
 
-Promotion vs non-promotion sales comparison
+### Descriptive Analytics (SQL)
 
-Region and category-level performance insights
+- Total units sold (year-wise filtering)
+- Average daily sales
+- Top-performing category, brand, region, channel
+- Promotion vs non-promotion uplift analysis
+- Stock availability impact on sales
 
-🔮 Predictive Analytics (Machine Learning)
+### Predictive Analytics (ML)
 
-Expected daily sales estimation
+- Expected daily sales under current conditions
+- Expected sales under active promotion
+- Expected sales without promotion (baseline)
 
-Demand forecasting using historical patterns
+### Prescriptive Analytics (What-If Simulations)
 
-Feature-driven sales prediction using XGBoost
+- **Stock scenarios**: Impact of +/-20% stock level changes
+- **Delivery delay**: Effect of increased delivery times on demand
+- **Promotion-stock interaction**: Should we promote when stock is low?
+- **Promotion removal**: Revenue impact of turning off promotions
+- **Feature importance**: Identify key demand drivers
 
-📉 Prescriptive Analytics (What-If Scenarios)
+---
 
-Impact of inventory reduction (e.g., 20% stock drop)
+## System Architecture
 
-Promotion effectiveness under low stock conditions
+```
++-------------------------------------------------------------+
+|                     STREAMLIT UI (app.py)                   |
+|                   Question dropdown + results               |
++---------------------------+---------------------------------+
+                            |
+                            v
++-------------------------------------------------------------+
+|                  JARVIS DISPATCHER (jarvis.py)              |
+|         Exact-match routing -> NLP fallback -> handlers     |
++--------+------------------+-----------------+---------------+
+         |                  |                 |
+         v                  v                 v
++---------------+  +----------------+  +-----------------+
+|  jarvis_sql   |  |   jarvis_ml    |  |   jarvis_nlp    |
+|               |  |                |  |                 |
+| - sales_sum   |  | - expected     |  | - detect_intent |
+| - top_cat     |  | - stock_sim    |  | - rule-based    |
+| - promo_eff   |  | - promo_sim    |  | - conservative  |
++-------+-------+  +--------+-------+  +-----------------+
+        |                   |
+        v                   v
++---------------+  +----------------+
+|   SQLite DB   |  |  XGBoost Model |
+|  (fmcg_data)  |  |  (xgb_model)   |
++---------------+  +----------------+
+```
 
-Identification of key drivers affecting sales
+### Component Responsibilities
 
-🖥 Interactive Streamlit App
+| Component | Responsibility |
+|-----------|----------------|
+| app.py | Streamlit UI, health checks, question routing |
+| jarvis.py | Central dispatcher, error formatting, handler functions |
+| jarvis_sql.py | SQL query execution with structured error handling |
+| jarvis_ml.py | ML predictions and simulations with feature alignment |
+| jarvis_nlp.py | Rule-based intent detection for free-text questions |
 
-Executive-style dropdown-based question selection
+---
 
-Clean, readable business summaries
+## ML Design and Feature Schema
 
-No raw tables or technical outputs exposed to the user
+### Model Specification
 
-FMCG Data (CSV)
-      ↓
-SQLite Database (SQL Analytics)
-      ↓
-Feature Engineering (lags, rolling averages, ratios)
-      ↓
-ML Model (XGBoost)
-      ↓
-Scenario Simulations
-      ↓
-Streamlit Web App (Jarvis Interface)
+| Property | Value |
+|----------|-------|
+| Algorithm | XGBoost Regressor |
+| Target | log1p(units_sold) |
+| Inverse Transform | expm1(prediction) |
+| Training | Offline (notebook) |
+| Inference | Loaded via pickle |
 
+### Canonical Feature Schema
 
-🛠️ Tech Stack
+The model expects exactly these features in this order:
 
-Programming Language: Python
+```python
+FEATURES = [
+    "product_id",           # Encoded product identifier
+    "market_id",            # Encoded market identifier
+    "year",                 # Calendar year
+    "promotion_flag",       # Binary: 0 = no promo, 1 = promo
+    "price",                # Unit price
+    "discount_pct",         # Discount percentage (default: 0.0)
+    "stock_available",      # Available inventory units
+    "delivery_delay_days",  # Days to deliver
+    "stock_ratio"           # stock_available / max(stock) per product-market
+]
+```
 
-Database: SQLite
+### Feature Alignment
 
-Data Analysis: Pandas, NumPy
+All ML simulations use the align_features() function to ensure column order matches model.feature_names_in_. This prevents silent prediction errors from feature misalignment.
 
-Machine Learning: XGBoost, Scikit-learn
+```python
+def align_features(model, X):
+    """Reorder X columns to match model.feature_names_in_ exactly."""
+    if hasattr(model, "feature_names_in_"):
+        required = list(model.feature_names_in_)
+        missing = [f for f in required if f not in X.columns]
+        if missing:
+            raise MLSimulationError(f"Missing features: {missing}")
+        return X[required]
+    return X
+```
 
-Visualization & UI: Streamlit
+---
 
-Version Control: Git & GitHub
+## Project Structure
 
-📂 Project Structure
-fmcg-jarvis-analytics/
-│
-├── app.py                  # Streamlit application
-├── data/
-│   └── fmcg_data.db        # SQLite database
-├── tools/
-│   ├── xgb_model.pkl       # Trained ML model
-│   └── X_test.pkl          # Model features
-├── fmcg_jarvis/
-│   ├── jarvis.py           # Main orchestration logic
-│   ├── jarvis_sql.py       # SQL analytics functions
-│   ├── jarvis_ml.py        # ML & simulation logic
-│   └── jarvis_nlp.py       # (Reserved for NLP extension)
-├── notebooks/
-│   └── analysis.ipynb      # Data exploration & modeling
-├── README.md
-└── .gitignore
+```
+fmcg-jarvis/
+|-- app.py                      # Streamlit application entry point
+|-- fmcg_jarvis/
+|   |-- __init__.py
+|   |-- jarvis.py               # Main dispatcher + handlers
+|   |-- jarvis_sql.py           # SQL query layer
+|   |-- jarvis_ml.py            # ML prediction + simulation layer
+|   +-- jarvis_nlp.py           # Intent detection (rule-based)
+|-- tools/
+|   |-- xgb_model.pkl           # Trained XGBoost model
+|   +-- X_test.pkl              # Feature sample for simulations
+|-- data/
+|   +-- fmcg_data.db            # SQLite database
+|-- notebooks/
+|   +-- main.ipynb              # Data pipeline + model training
+|-- requirements.txt
+|-- .gitignore
++-- README.md
+```
 
-📈 Example Business Questions Answered
+### Database Schema
 
-Total units sold in 2024
+```
++--------------+     +--------------+     +--------------+
+|   products   |     |   markets    |     |   calendar   |
++--------------+     +--------------+     +--------------+
+| product_id   |     | market_id    |     | date (PK)    |
+| sku          |     | region       |     | year         |
+| brand        |     | channel      |     | month        |
+| segment      |     +--------------+     | quarter      |
+| category     |                          | day_of_week  |
+| pack_type    |                          +--------------+
++--------------+
+        |                   |                   |
+        +-------------------+-------------------+
+                            |
+                            v
+                  +-------------------+
+                  |       sales       |
+                  +-------------------+
+                  | sale_id (PK)      |
+                  | date (FK)         |
+                  | product_id (FK)   |
+                  | market_id (FK)    |
+                  | price_unit        |
+                  | promotion_flag    |
+                  | delivery_days     |
+                  | stock_available   |
+                  | delivered_qty     |
+                  | units_sold        |
+                  +-------------------+
+```
 
-Do promotions increase sales?
+---
 
-What if stock drops by 20%?
+## Startup Health Checks
 
-Should we promote when inventory is low?
+The application validates all dependencies before accepting queries:
 
-What factors affect sales the most?
+```
+System Health Check
+============================================
+[OK] Database: Database is healthy
+[OK] ML Model: Model is healthy
+[OK] Features: Features loaded (X rows, Y columns)
+```
 
-Each answer is backed by data, ML predictions, or controlled simulations.
+| Check | Validation |
+|-------|------------|
+| Database | File exists, connection works, required tables present |
+| ML Model | File exists, loads successfully, has predict() method |
+| Features | File exists, loads as DataFrame, non-empty |
 
-🎯 Business Impact
+If any check fails, the app displays a clear error message and stops.
 
-Helps managers anticipate demand risks
+---
 
-Supports inventory and promotion planning
+## How to Run Locally
 
-Demonstrates how ML can be used beyond prediction — for decision support
+### Prerequisites
+
+- Python 3.10+
+- pip or conda
+
+### Installation
+
+```bash
+# Clone the repository
+git clone https://github.com/officialpk956-wq/fmcg-jarvis-analytics
+cd fmcg-jarvis
+
+# Create virtual environment
+python -m venv env
+source env/bin/activate  # Windows: env\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
+```
+
+### Required Dependencies
+
+```
+streamlit>=1.28.0
+pandas>=2.0.0
+numpy>=1.24.0
+sqlalchemy>=2.0.0
+xgboost>=3.0.0
+scikit-learn>=1.3.0
+```
+
+### Run the Application
+
+```bash
+streamlit run app.py
+```
+
+The app will open at http://localhost:8501
+
+### Verify Installation
+
+```bash
+# Test XGBoost installation
+python -c "from xgboost import XGBRegressor; print('OK')"
+
+# Test database connection
+python -c "import sqlite3; sqlite3.connect('data/fmcg_data.db').execute('SELECT 1')"
+```
+
+---
+
+## Engineering Principles
+
+### 1. Strict Feature Parity
+
+The same feature schema is used in training (notebook) and inference (app). The align_features() function enforces column order at runtime.
+
+### 2. Fail-Fast with Clear Errors
+
+All errors are caught and transformed into user-friendly messages. Internal details (SQL queries, stack traces) are logged but never exposed to users.
+
+```python
+class SQLExecutionError(Exception):
+    """Wraps database errors with safe context for UI display."""
+    def __init__(self, context: SQLErrorContext, original: Exception):
+        self.context = context  # Safe to show
+        self.original = original  # Logged only
+```
+
+### 3. Dropdown-First Routing
+
+Predefined questions are matched exactly before NLP fallback. This ensures deterministic behavior for known questions.
+
+```python
+if question in DROPDOWN_HANDLERS:
+    return DROPDOWN_HANDLERS[question]()  # Direct call, no NLP
+```
+
+### 4. Conservative NLP
+
+The intent detector uses explicit keyword matching, not ML. Unknown intents return a helpful "I don't understand" message rather than guessing.
+
+### 5. Connection Lifecycle Management
+
+SQLAlchemy Engine (not Connection) is passed throughout the app. Each query opens a fresh connection from the pool, preventing stale connection issues on Streamlit Cloud.
+
+---
+
+## Future Improvements
+
+| Area | Improvement |
+|------|-------------|
+| **NLP** | Replace rule-based intent detection with a lightweight classifier or LLM integration |
+| **Caching** | Add @st.cache_data for expensive SQL queries |
+| **Time Series** | Add Prophet or ARIMA for seasonal demand forecasting |
+| **Explainability** | Integrate SHAP values for per-prediction explanations |
+| **Testing** | Add pytest suite for SQL and ML simulation functions |
+| **CI/CD** | GitHub Actions for automated testing and deployment |
+
+---
+
+## Author
+
+Developed as a portfolio project demonstrating end-to-end ML system design, from data engineering to production deployment.
+
+**Skills demonstrated:**
+- SQL analytics and star schema design
+- XGBoost regression with proper train/inference separation
+- Streamlit application architecture
+- Error handling and production hardening
+- Clean code organization and documentation
+
+---
+
+## License
+
+This project is available for educational and portfolio purposes.
