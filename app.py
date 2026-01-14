@@ -68,18 +68,23 @@ def check_database_health() -> tuple[bool, Optional[Engine], str]:
             engine.dispose()
         return False, None, f"Cannot connect to database: {e}"
 
-    # 3. Verify required tables
+    # 3. Verify required tables (DEBUG ENABLED)
     try:
         with engine.connect() as conn:
             result = conn.execute(
                 text("SELECT name FROM sqlite_master WHERE type='table'")
             )
-            existing_tables = {row[0] for row in result.fetchall()}
-            missing_tables = set(REQUIRED_TABLES) - existing_tables
+            existing_tables = [row[0] for row in result.fetchall()]
 
+            # 🔍 DEBUG OUTPUT (TEMPORARY)
+            st.info("📋 Tables found in database:")
+            st.write(existing_tables)
+
+            missing_tables = set(REQUIRED_TABLES) - set(existing_tables)
             if missing_tables:
                 engine.dispose()
                 return False, None, f"Missing required tables: `{', '.join(missing_tables)}`"
+
     except SQLAlchemyError as e:
         engine.dispose()
         return False, None, f"Cannot verify tables: {e}"
@@ -209,9 +214,9 @@ with st.expander("ℹ️ How Jarvis Works"):
     st.markdown("""
 **FMCG Jarvis** is an AI-powered assistant designed to support data-driven decision making.
 
-- 📊 Descriptive analytics via SQL
-- 📈 Predictive analytics via ML
-- 🔮 What-if simulations for decisions
+- 📊 Descriptive analytics via SQL  
+- 📈 Predictive analytics via ML  
+- 🔮 What-if simulations for decisions  
     """)
 
 st.caption("Built with ❤️ for FMCG analytics | Jarvis v1.0")
